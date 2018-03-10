@@ -11,39 +11,35 @@ import Cookie
 import random
 import sqlite3
 import base64
-
 import pdb
-#pdb.set_trace()
+import sqlite3
 
+AddressSet =set()
+def InitAddressSet():
+    conn = MySQLdb.Connect(host='192.168.1.144',user='root',passwd='',db='bitcoin',port=3306,charset = 'utf8')
+    cursor = conn.cursor()
 
-import logging
-def log(msg):
-    logger = logging.getLogger('mylogger')
-    logger.setLevel(logging.DEBUG)
-    
-    # 创建一个handler，用于写入日志文件
-    fh = logging.FileHandler('./block.run.log')
-    fh.setLevel(logging.DEBUG)
-    
-    # 再创建一个handler，用于输出到控制台
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-    
-    # 定义handler的输出格式
-    formatter = logging.Formatter('[%(asctime)s][%(thread)d][%(filename)s][line: %(lineno)d][%(levelname)s] ## %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    
-    # 给logger添加handler
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-    
-    # 记录一条日志
-    logger.info(msg)
+    sql = u"SELECT user_address   from user_address;"
+    result =0
+    try:
+        n = cursor.execute(sql)
+        itemset = cursor.fetchall()
+        for item in itemset:
+            print item[0]
+            AddressSet.add(item[0])
+        result =1
+    except Exception , e:
+        print Exception,":" ,e
+        result =  -1
+    cursor.close()
+    conn.close()
+    return result
 
+def IsPrivateAddress(a):
+    return a in AddressSet
 
 def getCount():
-    command = '''curl  -s  --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockcount", "params": [] }' -H 'content-type: application/json;' http://1.119.143.222:18332  '''
+    command = '''curl  -s  --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockcount", "params": [] }' -H 'content-type: application/json;' http://192.168.1.128:8332  '''
     try:
         print command
         output = os.popen(command)
@@ -56,7 +52,7 @@ def getCount():
         return 1,0
 
 def  getHash(blockcount):
-    command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockhash", "params": [%s] }' -H 'content-type: application/json;' http://1.119.143.222:18332 '''%blockcount
+    command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockhash", "params": [%s] }' -H 'content-type: application/json;' http://192.168.1.128:8332 '''%blockcount
     print command
     try:
         output = os.popen(command)
@@ -69,7 +65,7 @@ def  getHash(blockcount):
         return 1,''
 
 def getBlock(hash):
-    command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblock", "params": ["%s", 2] }' -H 'content-type: application/json;' http://1.119.143.222:18332 '''%(hash)
+    command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblock", "params": ["%s", 2] }' -H 'content-type: application/json;' http://192.168.1.128:8332 '''%(hash)
     print command
     try:
         output = os.popen(command)
@@ -82,76 +78,67 @@ def getBlock(hash):
         return 1,''
 
 
-def putDB(filename_height, block):
+def putDB( block):
     conn = MySQLdb.Connect(host='localhost',user='root',passwd='',db='bitcoin',port=3306,charset = 'utf8')
     cur = conn.cursor()
-    #time = cur.execute("select now()")
-    #print time
-    blockfilename="./block%d.json"%filename_height
-    #with open("./block.json","w") as f:
-    with open(blockfilename,"w") as f:
-        json.dump(block,f)
-    #s = json.loada(jsondata)
-    #test=s
 
-    test=block
-    python_to_json = json.dumps(test, ensure_ascii=False)
-    json_to_python = json.loads(python_to_json)
-    no=0
-    #print "########################################"
-    #print json_to_python
     #pdb.set_trace()
+    python_to_json = json.dumps(block, ensure_ascii=False)
+    json_to_python = json.loads(python_to_json)
+
+    height =0
     try:
         height = json_to_python['height']
     except:
-                #print "line %d  txid = %s"%(no,atr['txid'])
-        print "exception...."
-        #pdb.set_trace()
+        print "height exception...."
         sys.exit(1)
-        pass
-   
 
-    #pdb.set_trace()
-    total = len(json_to_python['tx']) #remove result
-    for no in range(0, total):
-        #print "begin processing transaction %d of  %d------------"%(no,total) 
-        #print json_to_python['result']['tx'][no]
-        atr = json_to_python['tx'][no] #remove result
-       # print "txid = %s"%atr['txid']
-        txid = atr['txid']
-       # print atr['vout'][0]['value']
-        value = 0 #atr['vout'][0]['value']
+    blockfilename="./block%d.json"%height
+    with open(blockfilename,"w") as f:
+        json.dump(block,f)
 
-        outlen = len(atr['vout'])
+    txs = json_to_python['tx']
+    txcount = len(txs)
+    for nth in range(0, txcount):
+        tx = txs[nth]
+        txid = tx['txid']
+        value = 0
+
+        outlen = len(tx['vout'])
         for outloop in range(0, outlen):
+            n = tx['vout'][outloop]['n']
+            value = tx['vout'][outloop]['value']
 
             address=''
             addresscount=0
+            innerloopcount=0
+
             try:
-                print atr['vout'][outloop]['scriptPubKey']['addresses']
-                addresscount=len(atr['vout'][outloop]['scriptPubKey']['addresses'])
+                if  tx['vout'][outloop]['scriptPubKey'].has_key('addresses'):
+                    addresscount=len(tx['vout'][outloop]['scriptPubKey']['addresses'])
                 print "@@@@address count %d"%addresscount
-                address = atr['vout'][outloop]['scriptPubKey']['addresses']
-                value = atr['vout'][outloop]['value']
+                innerloopcount = min(addresscount,1 )
             except:
-                #print "line %d  txid = %s"%(no,atr['txid'])
+                print "outloop exception  txid = %s"%txid
                 pass
-            print "address count %d"%addresscount
-            for addressno in range(0, addresscount):
-                #sql = '''insert into tx(tx_out_value, txid, tx_address)  values ("%s",  "%s", "%s");'''%(value,txid,address[addressno])
-                #sql = '''insert into tx_out(tx_out_value, txid, tx_out_address,tx_height)  values ("%s",  "%s", "%s", "%s");'''%(value,txid,address[addressno],height)
-                n = atr['vout'][outloop]['n']
-                sql = '''insert into tx_out(tx_out_value, txid, tx_out_address,tx_height, tx_out_index)  values ("%s",  "%s", "%s", "%s", "%s");'''%(value,txid,address[addressno],height,n)
-                print sql
+
+            for addressno in range(0, innerloopcount):
+                address = tx['vout'][outloop]['scriptPubKey']['addresses'][addressno]
+                if not IsPrivateAddress(address) :
+                    continue
+                sql = '''insert into tx_out(tx_out_value, txid, tx_out_address,tx_height, tx_out_index)  values ("%s",  "%s", "%s", "%s", "%s");'''%(value,txid,address,height,n)
+                #print sql
                 ok=0
                 try:
                     ok = cur.execute(sql)
                 except Exception as e:
                     print e
                     #print dir(e)
+                    return 1
                     #log(e.message)
-                print "++++++++++++++++++++++++++++++sql execute %d++++++++++++++++++++++++++++++"%ok
+                print " %d  %s ++++++++++++++++++++++++++++++"%(ok ,sql)
     conn.commit()
+    return 0
 
 def test_Current():
     error ,count = getCount()
@@ -197,7 +184,6 @@ def putBlockNo(blocknumber):
 if __name__ == '__main__':
     os.system(''' date >> /develop/btc2/cron.run.log ''')
 
-
     import socket
     import time
 
@@ -205,6 +191,7 @@ if __name__ == '__main__':
     sk = socket.socket(socket.AF_INET,socket.SOCK_DGRAM,0)
     sk.bind(ip_port)
 
+    InitAddressSet()
     #time.sleep(30000)
     #run()
     #putBlockNo(112);
@@ -236,9 +223,11 @@ if __name__ == '__main__':
             print "getBlock empty string"
             sys.exit(1)
 
-        putDB(i , block)
-        numberLast = int(i)
-        putBlockNo(numberLast)
-        log("complete run")
+        error = putDB( block)
+        if not error:
+            numberLast = int(i)
+            putBlockNo(numberLast)
+        #log("complete run")
+
 
 
