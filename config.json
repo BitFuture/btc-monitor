@@ -1,0 +1,9 @@
+{
+	"btcserver": "http://192.168.1.128:8332",
+	"btcuser": "dylan",
+	"btcpassword": "123456",
+	"dbserverip": "192.168.1.144",
+	"dbservername": "bitcoin",
+	"dbuser": "root",
+	"dbpassword": ""
+}
