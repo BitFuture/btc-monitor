@@ -13,10 +13,47 @@ import sqlite3
 import base64
 import pdb
 import sqlite3
+import traceback
+
+
+def dump():
+    isotimeformat='%Y%m%d-%H%M%S'
+    timestring=time.strftime(isotimeformat,time.localtime(time.time()))
+    dumpfile = "./%s.dump"%timestring
+    print dumpfile
+    f=open(dumpfile,'a')
+    traceback.print_exc(file=f)
+    f.flush()    
+    f.close()
+
+
+def config():
+    try:
+        config_string=open("./config.json").read()
+        config = json.loads(config_string)
+        print config
+        
+    except Exception as e:
+        print "config.json Error!!!"
+        print e
+        dump()
+        sys.exit(1)
+    return config
+'''        isotimeformat='%Y%m%d-%H%M%S'
+        timestring=time.strftime(isotimeformat,time.localtime(time.time()))
+        dumpfile = "./%s.dump"%timestring
+        print dumpfile
+        f=open(dumpfile,'a')
+        traceback.print_exc(file=f)
+        f.flush()
+        f.close()
+'''
+    #print config
 
 AddressSet =set()
 def InitAddressSet():
-    conn = MySQLdb.Connect(host='192.168.1.144',user='root',passwd='',db='bitcoin',port=3306,charset = 'utf8')
+    #conn = MySQLdb.Connect(host='192.168.1.144',user='root',passwd='',db='bitcoin',port=3306,charset = 'utf8')
+    conn = MySQLdb.Connect(host=config()['dbserverip'],user=config()['dbuser'],passwd=config()['dbpassword'] ,db=config()['dbservername'],port=3306,charset = 'utf8')
     cursor = conn.cursor()
 
     sql = u"SELECT user_address   from user_address;"
@@ -36,10 +73,13 @@ def InitAddressSet():
     return result
 
 def IsPrivateAddress(a):
+    #return True
     return a in AddressSet
 
 def getCount():
-    command = '''curl  -s  --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockcount", "params": [] }' -H 'content-type: application/json;' http://192.168.1.128:8332  '''
+    #command = '''curl  -s  --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockcount", "params": [] }' -H 'content-type: application/json;' http://192.168.1.128:8332  '''
+    #print command
+    command = '''curl  -s  --user %s:%s --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockcount", "params": [] }' -H 'content-type: application/json;' %s  '''%(config()['btcuser'], config()['btcpassword'],config()['btcserver'])
     try:
         print command
         output = os.popen(command)
@@ -52,7 +92,8 @@ def getCount():
         return 1,0
 
 def  getHash(blockcount):
-    command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockhash", "params": [%s] }' -H 'content-type: application/json;' http://192.168.1.128:8332 '''%blockcount
+    #command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockhash", "params": [%s] }' -H 'content-type: application/json;' http://192.168.1.128:8332 '''%blockcount
+    command = '''curl -s --user %s:%s --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockhash", "params": [%s] }' -H 'content-type: application/json;' %s '''%(config()['btcuser'], config()['btcpassword'],blockcount, config()['btcserver'])
     print command
     try:
         output = os.popen(command)
@@ -65,7 +106,8 @@ def  getHash(blockcount):
         return 1,''
 
 def getBlock(hash):
-    command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblock", "params": ["%s", 2] }' -H 'content-type: application/json;' http://192.168.1.128:8332 '''%(hash)
+    #command = '''curl -s --user dylan:123456 --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblock", "params": ["%s", 2] }' -H 'content-type: application/json;' http://192.168.1.128:8332 '''%(hash)
+    command = '''curl -s --user %s:%s --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblock", "params": ["%s", 2] }' -H 'content-type: application/json;' %s '''%( config()['btcuser'], config()['btcpassword'],hash, config()['btcserver'])
     print command
     try:
         output = os.popen(command)
@@ -79,7 +121,8 @@ def getBlock(hash):
 
 
 def putDB( block):
-    conn = MySQLdb.Connect(host='localhost',user='root',passwd='',db='bitcoin',port=3306,charset = 'utf8')
+#    conn = MySQLdb.Connect(host='localhost',user='root',passwd='',db='bitcoin',port=3306,charset = 'utf8')
+    conn = MySQLdb.Connect(host=config()['dbserverip'],user=config()['dbuser'],passwd=config()['dbpassword'] ,db=config()['dbservername'],port=3306,charset = 'utf8')    
     cur = conn.cursor()
 
     #pdb.set_trace()
@@ -99,6 +142,63 @@ def putDB( block):
 
     txs = json_to_python['tx']
     txcount = len(txs)
+
+
+    #pdb.set_trace()
+    for nth in range(0, txcount):
+        tx = txs[nth]
+        txid = tx['txid']
+        value = 0
+        inlen = len(tx['vin'])
+        refsequence=0
+        for inloop in range(0, inlen):
+            if tx['vin'][inloop].has_key("sequence"):
+                refsequence =tx['vin'][inloop]["sequence"]
+            if tx['vin'][inloop].has_key('vout'):
+                refvout = tx['vin'][inloop]['vout']
+            else:
+                continue
+            if tx['vin'][inloop].has_key('txid'):
+                reftxid = tx['vin'][inloop]['txid']
+            else:
+                continue
+            mark = 0
+            try:
+                sqlCmd='''select tx_out_address from tx_out where txid like "%s" and tx_out_index like "%s"; '''%(reftxid,refvout)
+                print sqlCmd
+                n = cur.execute(sqlCmd)
+                print n
+                itemset = cur.fetchall()
+                #print type(itemset)
+                for item in itemset:
+                    print item[0]
+                    if  IsPrivateAddress(item[0]):
+                        mark = 1    #should mark this is within inner addresses.
+                        #if mark:
+                        sql = '''insert into tx_in(txid, tx_in_address,tx_height, tx_out_index)  values ("%s",  "%s", "%s",  "%s");'''%(reftxid,address,height,refvout)
+                        print sql
+                        ok=0
+                        try:
+                            ok = cur.execute(sql)
+                        except Exception as e:
+                            print e
+                            #print dir(e)
+                            #return 1
+                            #pdb.set_trace()
+                            print "serious bug !!! result =%d : %s "%(ok ,sql)
+                            sys.exit(1)
+            except:
+                pass
+    try:
+        #pdb.set_trace()
+        conn.commit()
+    except Exception as e:
+        print e
+        #pdb.set_trace()
+        print "serious bug ,commit error!!! height = %s"%height
+        sys.exit(1)
+
+    #it is turn to preocess the vout of this block
     for nth in range(0, txcount):
         tx = txs[nth]
         txid = tx['txid']
@@ -116,7 +216,7 @@ def putDB( block):
             try:
                 if  tx['vout'][outloop]['scriptPubKey'].has_key('addresses'):
                     addresscount=len(tx['vout'][outloop]['scriptPubKey']['addresses'])
-                print "@@@@address count %d"%addresscount
+                #print "@@@@address count %d"%addresscount
                 innerloopcount = min(addresscount,1 )
             except:
                 print "outloop exception  txid = %s"%txid
@@ -134,7 +234,8 @@ def putDB( block):
                 except Exception as e:
                     print e
                     #print dir(e)
-                    return 1
+                    pass
+                    #return 1
                     #log(e.message)
                 print " %d  %s ++++++++++++++++++++++++++++++"%(ok ,sql)
     conn.commit()
@@ -183,7 +284,8 @@ def putBlockNo(blocknumber):
 
 if __name__ == '__main__':
     os.system(''' date >> /develop/btc2/cron.run.log ''')
-
+    print config()['dbserverip']
+    
     import socket
     import time
 
@@ -228,6 +330,7 @@ if __name__ == '__main__':
             numberLast = int(i)
             putBlockNo(numberLast)
         #log("complete run")
+
 
 
 
