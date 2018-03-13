@@ -20,7 +20,7 @@ def dump():
     isotimeformat='%Y%m%d-%H%M%S'
     timestring=time.strftime(isotimeformat,time.localtime(time.time()))
     dumpfile = "./%s.dump"%timestring
-    print dumpfile
+    #print dumpfile
     f=open(dumpfile,'a')
     traceback.print_exc(file=f)
     f.flush()    
@@ -31,7 +31,7 @@ def config():
     try:
         config_string=open("./config.json").read()
         config = json.loads(config_string)
-        print config
+        #print config
         
     except Exception as e:
         print "config.json Error!!!"
@@ -167,7 +167,7 @@ def putDB( block):
                 #if reftxid =="a4e9e59a2ada3d6a3cfce0d0a8e0c2d9970d4b29d1e0e0def94ab62de68e30d5":
                 #   pdb.set_trace()
                 sqlCmd='''select tx_out_address from tx_out where txid like "%s" and tx_out_index like "%s"; '''%(reftxid,refvout)
-                print sqlCmd
+                #print sqlCmd
                 n = cur.execute(sqlCmd)
                 #print n
                 itemset = cur.fetchall()
@@ -187,8 +187,8 @@ def putDB( block):
                             #print dir(e)
                             #return 1
                             #pdb.set_trace()
-                            print "serious bug !!! result =%d : %s "%(ok ,sql)
-                            sys.exit(1)
+                            print "serious bug !!! insert  result =%d : %s "%(ok ,sql)
+                            pass #sys.exit(1)
             except Exception as e:
                 print e
                 pass
