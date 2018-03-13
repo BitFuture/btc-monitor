@@ -37,7 +37,7 @@ if __name__ == '__main__':
     if err:
         sys.exit(0)
 
-    todelete = int(complete) - 6*24*5
+    todelete = int(complete) - 6*24*100
     sql = '''delete from tx_out where tx_height < %d;'''%todelete
     print sql
 
