@@ -39,20 +39,12 @@ def config():
         dump()
         sys.exit(1)
     return config
-'''        isotimeformat='%Y%m%d-%H%M%S'
-        timestring=time.strftime(isotimeformat,time.localtime(time.time()))
-        dumpfile = "./%s.dump"%timestring
-        print dumpfile
-        f=open(dumpfile,'a')
-        traceback.print_exc(file=f)
-        f.flush()
-        f.close()
-'''
-    #print config
 
 AddressSet =set()
 def InitAddressSet():
+    '''
     #conn = MySQLdb.Connect(host='192.168.1.144',user='root',passwd='',db='bitcoin',port=3306,charset = 'utf8')
+    '''
     conn = MySQLdb.Connect(host=config()['dbserverip'],user=config()['dbuser'],passwd=config()['dbpassword'] ,db=config()['dbservername'],port=3306,charset = 'utf8')
     cursor = conn.cursor()
 
@@ -143,31 +135,41 @@ def putDB( block):
     txs = json_to_python['tx']
     txcount = len(txs)
 
-
-    #pdb.set_trace()
     for nth in range(0, txcount):
         tx = txs[nth]
         txid = tx['txid']
         value = 0
         inlen = len(tx['vin'])
         refsequence=0
+        refvout=''
         for inloop in range(0, inlen):
             if tx['vin'][inloop].has_key("sequence"):
                 refsequence =tx['vin'][inloop]["sequence"]
             if tx['vin'][inloop].has_key('vout'):
                 refvout = tx['vin'][inloop]['vout']
+                #print type(refvout)
+                #print "refvout = %s"%refvout
+                #if refvout=='79':
+                    #pdb.set_trace()
+                #    print refvout
             else:
                 continue
             if tx['vin'][inloop].has_key('txid'):
                 reftxid = tx['vin'][inloop]['txid']
+                #print type(reftxid)
+                #print "reftxid=%s"%reftxid
+                #if reftxid == '7b59aa3c7e71a20ab0498c852017b077cb2d3291123b9008e339025b8fa2a79f':
+                #    pdb.set_trace()
             else:
                 continue
             mark = 0
             try:
+                #if reftxid =="a4e9e59a2ada3d6a3cfce0d0a8e0c2d9970d4b29d1e0e0def94ab62de68e30d5":
+                #   pdb.set_trace()
                 sqlCmd='''select tx_out_address from tx_out where txid like "%s" and tx_out_index like "%s"; '''%(reftxid,refvout)
                 print sqlCmd
                 n = cur.execute(sqlCmd)
-                print n
+                #print n
                 itemset = cur.fetchall()
                 #print type(itemset)
                 for item in itemset:
@@ -175,7 +177,7 @@ def putDB( block):
                     if  IsPrivateAddress(item[0]):
                         mark = 1    #should mark this is within inner addresses.
                         #if mark:
-                        sql = '''insert into tx_in(txid, tx_in_address,tx_height, tx_out_index)  values ("%s",  "%s", "%s",  "%s");'''%(reftxid,address,height,refvout)
+                        sql = '''insert into tx_in(txid,ref_txid, tx_in_address,tx_height,tx_vout)  values ("%s","%s", "%s", "%s",  "%s");'''%(txid,reftxid,item[0],height,refvout)
                         print sql
                         ok=0
                         try:
@@ -187,16 +189,24 @@ def putDB( block):
                             #pdb.set_trace()
                             print "serious bug !!! result =%d : %s "%(ok ,sql)
                             sys.exit(1)
-            except:
+            except Exception as e:
+                print e
                 pass
+
     try:
         #pdb.set_trace()
         conn.commit()
+    
     except Exception as e:
         print e
         #pdb.set_trace()
         print "serious bug ,commit error!!! height = %s"%height
         sys.exit(1)
+
+
+    #print "sys exit"
+    #sys.exit(0)
+
 
     #it is turn to preocess the vout of this block
     for nth in range(0, txcount):
@@ -263,6 +273,7 @@ def test_Current():
     putDB(block)
 
 def getBlockNo():
+    #pdb.set_trace()
     command = '''tail -n 1 /develop/btc2/block.log  '''
     try:
         print command
@@ -273,7 +284,7 @@ def getBlockNo():
         return 1,0
 
 def putBlockNo(blocknumber):
-    print  "+++++++++++++++++++writing  block  number %d+++++++++++++++++++++++++++"%blocknumber
+    print  "+++++++++++++++++++finishing  block   %d+++++++++++++++++++++++++++"%blocknumber
     command = '''echo "%d" >> /develop/btc2/block.log  '''%blocknumber
     try:
         print command
@@ -284,7 +295,7 @@ def putBlockNo(blocknumber):
 
 if __name__ == '__main__':
     os.system(''' date >> /develop/btc2/cron.run.log ''')
-    print config()['dbserverip']
+    #print config()['dbserverip']
     
     import socket
     import time
@@ -330,7 +341,3 @@ if __name__ == '__main__':
             numberLast = int(i)
             putBlockNo(numberLast)
         #log("complete run")
-
-
-
-
