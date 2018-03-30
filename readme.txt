@@ -30,7 +30,7 @@ select tx_height , count(*) from tx_out group by tx_height order by create_time 
 会有数据逐渐入库。
 
 维护
-    当前目录下会有json文件不断生成， 因为文件较小，且为了调试， 暂没有删除文件， 可以每个月删除一个月之前的文件。
-    
+    当前目录下会有json文件不断生成， 因为文件较小，且为了调试， 暂没有删除文件， 可以每个月删除一个月之前的文件。git clean -f
+ 
     
 
