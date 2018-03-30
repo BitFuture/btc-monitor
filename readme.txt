@@ -34,3 +34,7 @@ select tx_height , count(*) from tx_out group by tx_height order by create_time 
  
     
 
+其他
+导出整个数据库结构和数据
+mysqldump -h localhost -uroot -p bitcoin > bitcoin.sql
+
